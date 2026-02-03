@@ -78,7 +78,7 @@ const CONFIG = {
     music: {
         enabled: true,                     // Music feature is enabled
         autoplay: true,                    // Try to autoplay (note: some browsers may block this)
-        musicUrl: "https://res.cloudinary.com/dxi6xm1jq/video/upload/v1770090831/CKay_-_Love_Nwantiti_Remix_ft._Joeboy_Kuami_Eugene_Ah_Ah_Ah_Official_Music_Video_uc6oyf.mp3", // Music streaming URL
+        musicUrl: "https://res.cloudinary.com/dxi6xm1jq/video/upload/song.mp3", // Music streaming URL
         startText: "🎵 Play Music",        // Button text to start music
         stopText: "🔇 Stop Music",         // Button text to stop music
         volume: 0.5                        // Volume level (0.0 to 1.0)

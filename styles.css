@@ -316,3 +316,23 @@ h2 {
     transform: scale(1.05);
     background: var(--secondary-color);
 } 
+
+/* === Added: small italic PS note under celebration === */
+.small-note {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;            /* slightly smaller text */
+  color: rgba(0, 0, 0, 0.65);    /* muted; change for dark themes if needed */
+  text-align: center;
+  line-height: 1.2;
+  max-width: 28rem;
+  margin-left: auto;
+  margin-right: auto;
+  font-style: italic;            /* ensure italic even if <em> removed */
+}
+
+/* optional extra - slightly style the emoji so it reads like a tiny love-note */
+.small-note .love-note {
+  margin-left: 6px;
+  font-size: 0.95em;
+}

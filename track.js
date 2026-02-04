@@ -1,94 +1,78 @@
-// Lightweight tracker — place in the repo root next to index.html and script.js.
-// It reads window.TRACK_ENDPOINT (set in config.js) and sends a POST on each page load.
+// Safe, minimal tracker. Sends one POST per pageview to window.TRACK_ENDPOINT.
+// No external geo lookup here; server-side Worker will enrich with CF info.
+// Add <script src="config.js"></script> before including this file.
 
 (function () {
-  var TRACK_ENDPOINT = window.TRACK_ENDPOINT || '';
-
-  function readCookie(name) {
-    var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-    return m ? decodeURIComponent(m[2]) : null;
-  }
-  function setCookie(name, value, days) {
-    var expires = new Date(Date.now() + (days||3650)*24*60*60*1000).toUTCString();
-    document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; expires=' + expires + '; SameSite=Lax';
-  }
-  function newUuid() {
-    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
-
-  var visitorCookieName = 'visitor_id_v1';
-  var visitorId = readCookie(visitorCookieName);
-  if (!visitorId) {
-    visitorId = newUuid();
-    setCookie(visitorCookieName, visitorId, 3650);
-  }
-
-  var payloadBase = {
-    visitorId: visitorId,
-    page: location.pathname + location.search,
-    ts: new Date().toISOString(),
-    referrer: document.referrer || '',
-    userAgent: navigator.userAgent || ''
-  };
-
-  var LOCATION_TIMEOUT = 1200;
-  var locationResolved = false;
-  var didSend = false;
-
-  function sendPayload(payload) {
-    if (!TRACK_ENDPOINT || TRACK_ENDPOINT.indexOf('REPLACE_WITH_YOUR_APPS_SCRIPT_URL') !== -1) {
-      // not configured — in dev log to console
-      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') console.log('TRACK payload', payload);
-      return;
+  try {
+    function readCookie(name) {
+      var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+      return m ? decodeURIComponent(m[2]) : null;
     }
-    try {
-      var body = JSON.stringify(payload);
-      if (navigator.sendBeacon) {
-        var blob = new Blob([body], { type: 'application/json' });
-        navigator.sendBeacon(TRACK_ENDPOINT, blob);
-      } else {
-        fetch(TRACK_ENDPOINT, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: body,
-          keepalive: true
-        }).catch(function(){});
-      }
-    } catch (e) { console.warn('tracking send error', e); }
-  }
-
-  var timer = setTimeout(function () {
-    if (!locationResolved && !didSend) {
-      didSend = true;
-      sendPayload(payloadBase);
+    function setCookie(name, value, days) {
+      var expires = new Date(Date.now() + (days||3650)*24*60*60*1000).toUTCString();
+      document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; expires=' + expires + '; SameSite=Lax';
     }
-  }, LOCATION_TIMEOUT);
-
-  // IP-based geolocation (no permission prompt). Uses ipapi.co (free tier).
-  fetch('https://ipapi.co/json/')
-    .then(function (res) { return res.ok ? res.json() : Promise.reject('no geo'); })
-    .then(function (loc) {
-      locationResolved = true;
-      clearTimeout(timer);
-      var payload = Object.assign({}, payloadBase, {
-        location: {
-          ip: loc.ip || '',
-          city: loc.city || '',
-          region: loc.region || '',
-          country: loc.country_name || '',
-          latitude: loc.latitude || loc.lat || '',
-          longitude: loc.longitude || loc.lon || ''
-        }
+    function newUuid() {
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
       });
-      if (!didSend) { didSend = true; sendPayload(payload); }
-    })
-    .catch(function () {
-      // if geo lookup fails, timeout will trigger sendPayload with base payload
-    });
+    }
 
-  if (!window.fetch) { sendPayload(payloadBase); }
+    function run() {
+      try {
+        var TRACK_ENDPOINT = (window && window.TRACK_ENDPOINT) ? window.TRACK_ENDPOINT : '';
+        if (!TRACK_ENDPOINT || TRACK_ENDPOINT.indexOf('REPLACE_WITH_YOUR_WORKER_URL') !== -1) {
+          // Not configured; in local dev log to console
+          if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+            console.log('[tracker] TRACK_ENDPOINT not configured:', TRACK_ENDPOINT);
+          }
+          return;
+        }
+
+        var visitorCookieName = 'visitor_id_v1';
+        var visitorId = readCookie(visitorCookieName);
+        if (!visitorId) {
+          visitorId = newUuid();
+          try { setCookie(visitorCookieName, visitorId, 3650); } catch (e) {}
+        }
+
+        var payload = {
+          visitorId: visitorId,
+          page: (location && location.pathname ? location.pathname : '') + (location.search || ''),
+          ts: new Date().toISOString(),
+          referrer: (document && document.referrer) ? document.referrer : '',
+          userAgent: (navigator && navigator.userAgent) ? navigator.userAgent : ''
+        };
+
+        // Send non-blocking via fetch with keepalive and swallow any errors
+        try {
+          if (window.fetch) {
+            setTimeout(function () {
+              try {
+                fetch(TRACK_ENDPOINT, {
+                  method: 'POST',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify(payload),
+                  keepalive: true
+                }).catch(function () { /* ignore */ });
+              } catch (e) { /* ignore */ }
+            }, 0);
+          } else if (navigator && navigator.sendBeacon) {
+            try {
+              var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+              navigator.sendBeacon(TRACK_ENDPOINT, blob);
+            } catch (e) { /* ignore */ }
+          }
+        } catch (e) { /* ignore */ }
+      } catch (e) { /* swallow */ }
+    }
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      setTimeout(run, 0);
+    } else {
+      window.addEventListener('load', function () { setTimeout(run, 0); }, {passive:true});
+    }
+  } catch (err) { /* final swallow */ }
 })();

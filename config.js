@@ -87,4 +87,4 @@ const CONFIG = {
 
 // Don't modify anything below this line unless you know what you're doing
 window.VALENTINE_CONFIG = CONFIG; 
-window.TRACK_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzVKM1OSsR1g4IbfPVMZWJI-iKI12Vz-AvS9fnoRAAjQJhy147Kw6VDJX87xGIPZoGFLA/exec?token=1EeFtKYeR4qzQut7Z71jcst5vzL2zKWX5wLgRDDu4Jms';
+window.TRACK_ENDPOINT = r'https://script.google.com/macros/s/AKfycbzVKM1OSsR1g4IbfPVMZWJI-iKI12Vz-AvS9fnoRAAjQJhy147Kw6VDJX87xGIPZoGFLA/exec?token=1EeFtKYeR4qzQut7Z71jcst5vzL2zKWX5wLgRDDu4Jms';

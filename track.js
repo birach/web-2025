@@ -1,7 +1,4 @@
-// Safe, minimal tracker. Sends one POST per pageview to window.TRACK_ENDPOINT.
-// No external geo lookup here; server-side Worker will enrich with CF info.
-// Add <script src="config.js"></script> before including this file.
-
+// Safe, minimal tracker. Sends client local time and timezone along with pageview.
 (function () {
   try {
     function readCookie(name) {
@@ -20,11 +17,20 @@
       });
     }
 
+    function getClientTZ() {
+      try {
+        if (Intl && Intl.DateTimeFormat) {
+          var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          return tz || '';
+        }
+      } catch (e) {}
+      return '';
+    }
+
     function run() {
       try {
         var TRACK_ENDPOINT = (window && window.TRACK_ENDPOINT) ? window.TRACK_ENDPOINT : '';
         if (!TRACK_ENDPOINT || TRACK_ENDPOINT.indexOf('REPLACE_WITH_YOUR_WORKER_URL') !== -1) {
-          // Not configured; in local dev log to console
           if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
             console.log('[tracker] TRACK_ENDPOINT not configured:', TRACK_ENDPOINT);
           }
@@ -38,10 +44,17 @@
           try { setCookie(visitorCookieName, visitorId, 3650); } catch (e) {}
         }
 
+        var now = new Date();
+        var localTimeZone = getClientTZ();
         var payload = {
           visitorId: visitorId,
           page: (location && location.pathname ? location.pathname : '') + (location.search || ''),
-          ts: new Date().toISOString(),
+          // client timestamp (UTC ISO)
+          ts: now.toISOString(),
+          // optional local forms:
+          localTsIso: now.toISOString(),
+          localTimeFormatted: (function() { try { return now.toLocaleString(); } catch (e) { return ''; } })(),
+          localTimeZone: localTimeZone,
           referrer: (document && document.referrer) ? document.referrer : '',
           userAgent: (navigator && navigator.userAgent) ? navigator.userAgent : ''
         };
